@@ -1,0 +1,368 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>WebGIS Kualitas Sumur — Kelurahan Sikumana</title>
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --ink:#16221d;
+    --ink-soft:#4c5a54;
+    --ink-faint:#8a948f;
+    --paper:#f6f5f1;
+    --panel:#ffffff;
+    --line:#e0ded6;
+    --teal:#0f6e56;
+    --teal-soft:#e1f5ee;
+    --green:#2e7d32;
+    --green-soft:#eaf3de;
+    --amber:#c98500;
+    --amber-soft:#faeeda;
+    --red:#a32d2d;
+    --red-soft:#fcebeb;
+  }
+  *{box-sizing:border-box;}
+  html,body{margin:0;height:100%;font-family:'Inter',sans-serif;color:var(--ink);background:var(--paper);}
+  #app{display:flex;height:100vh;width:100vw;overflow:hidden;}
+  #sidebar{
+    width:340px;min-width:340px;background:var(--panel);border-right:1px solid var(--line);
+    display:flex;flex-direction:column;overflow-y:auto;z-index:1000;
+  }
+  #map{flex:1;height:100%;}
+
+  .brand{padding:22px 22px 16px;border-bottom:1px solid var(--line);}
+  .brand .eyebrow{font-size:11px;letter-spacing:.08em;text-transform:uppercase;color:var(--teal);font-weight:600;margin:0 0 6px;}
+  .brand h1{font-family:'Space Grotesk',sans-serif;font-size:19px;font-weight:600;line-height:1.35;margin:0 0 6px;}
+  .brand p{font-size:12.5px;color:var(--ink-soft);margin:0;line-height:1.5;}
+  .brand-title{display:flex;align-items:center;gap:10px;}
+  .brand-title img{width:36px;height:36px;object-fit:contain;flex-shrink:0;}
+  .brand-title h1{margin:0;}
+
+  .stats{display:grid;grid-template-columns:1fr 1fr;gap:1px;background:var(--line);border-bottom:1px solid var(--line);}
+  .stat{background:var(--panel);padding:14px 18px;}
+  .stat .n{font-family:'Space Grotesk',sans-serif;font-size:26px;font-weight:600;line-height:1;}
+  .stat .l{font-size:11px;color:var(--ink-faint);margin-top:5px;}
+  .stat.green .n{color:var(--green);}
+  .stat.red .n{color:var(--red);}
+
+  .section{padding:16px 22px;border-bottom:1px solid var(--line);}
+  .section h2{font-size:11px;text-transform:uppercase;letter-spacing:.07em;color:var(--ink-faint);font-weight:600;margin:0 0 12px;}
+
+  .mode-tabs{display:flex;border:1px solid var(--line);border-radius:8px;overflow:hidden;}
+  .mode-tabs button{flex:1;padding:8px 4px;font-size:12px;font-family:'Inter',sans-serif;font-weight:500;background:var(--panel);border:none;border-right:1px solid var(--line);color:var(--ink-soft);cursor:pointer;}
+  .mode-tabs button:last-child{border-right:none;}
+  .mode-tabs button.active{background:var(--teal);color:#fff;}
+
+  .legend-item{display:flex;align-items:center;gap:9px;font-size:13px;padding:5px 0;color:var(--ink);}
+  .swatch{width:12px;height:12px;border-radius:50%;flex-shrink:0;border:1.5px solid rgba(0,0,0,.15);}
+  .legend-count{margin-left:auto;color:var(--ink-faint);font-size:12px;font-variant-numeric:tabular-nums;}
+
+  .filter-row{display:flex;align-items:center;gap:8px;font-size:13px;padding:6px 0;cursor:pointer;user-select:none;}
+  .filter-row input{accent-color:var(--teal);width:15px;height:15px;}
+
+  .shape-note{display:flex;align-items:center;gap:8px;font-size:12px;color:var(--ink-soft);padding:4px 0;}
+  .shape-icon{width:12px;height:12px;flex-shrink:0;}
+
+  footer{padding:16px 22px;font-size:11px;color:var(--ink-faint);line-height:1.6;margin-top:auto;}
+  footer a{color:var(--teal);}
+
+  .leaflet-popup-content-wrapper{border-radius:10px;box-shadow:0 4px 18px rgba(0,0,0,.14);}
+  .leaflet-popup-content{margin:14px 16px;font-family:'Inter',sans-serif;font-size:13px;min-width:230px;}
+  .pop-title{font-family:'Space Grotesk',sans-serif;font-weight:600;font-size:14.5px;margin-bottom:8px;color:var(--ink);}
+  .pop-badge{display:inline-block;font-size:11px;font-weight:600;padding:2px 8px;border-radius:20px;margin-bottom:9px;}
+  .pop-row{display:flex;justify-content:space-between;gap:12px;padding:3px 0;border-top:1px solid #f0efec;}
+  .pop-row:first-of-type{border-top:none;}
+  .pop-k{color:var(--ink-faint);}
+  .pop-v{font-weight:500;text-align:right;}
+  .pop-photos{display:flex;gap:8px;margin-top:10px;}
+  .pop-photo-link{flex:1;display:block;text-decoration:none;border-radius:8px;overflow:hidden;border:1px solid var(--line);position:relative;background:#f2f1ec;}
+  .pop-photo-link img{width:100%;height:72px;object-fit:cover;display:block;}
+  .pop-photo-label{position:absolute;bottom:0;left:0;right:0;background:rgba(22,34,29,.72);color:#fff;font-size:10px;padding:3px 6px;text-align:center;}
+
+  @media (max-width:760px){
+    #app{flex-direction:column;}
+    #sidebar{width:100%;min-width:0;max-height:46vh;order:2;border-right:none;border-top:1px solid var(--line);}
+    #map{order:1;height:54vh;}
+  }
+</style>
+</head>
+<body>
+<div id="app">
+  <aside id="sidebar">
+    <div class="brand">
+      <p class="eyebrow">Peta WebGIS Interaktif</p>
+      <div class="brand-title">
+        <img src="https://iconlogovector.com/uploads/images/2023/06/sm-c4ca0903c2a89da929339b26e3ea93c179.jpg" alt="Logo">
+        <h1>Inventarisasi Kualitas Sumur Gali &amp; Sumur Bor</h1>
+      </div>
+      <p>Kelurahan Sikumana, Kecamatan Maulafa, Kota Kupang, NTT — Data Survei KKN UNWIRA Tahun 2026.</p>
+    </div>
+
+    <div class="stats" id="stats-box"></div>
+
+    <div class="section">
+      <h2>Mode tampilan</h2>
+      <div class="mode-tabs" id="mode-tabs">
+        <button data-mode="KUALITAS" class="active">Kualitas</button>
+        <button data-mode="KAT_RISIKO">Skor risiko</button>
+        <button data-mode="SUMBER_AIR">Jenis sumur</button>
+      </div>
+    </div>
+
+    <div class="section" id="legend-section">
+      <h2>Legenda</h2>
+      <div id="legend-body"></div>
+    </div>
+
+    <div class="section">
+      <h2>Filter jenis sumur</h2>
+      <label class="filter-row"><input type="checkbox" class="type-filter" value="Sumur Gali" checked> Sumur Gali</label>
+      <label class="filter-row"><input type="checkbox" class="type-filter" value="Sumur Bor" checked> Sumur Bor</label>
+      <div class="shape-note" style="margin-top:8px;">
+        <svg class="shape-icon" viewBox="0 0 12 12"><circle cx="6" cy="6" r="5" fill="none" stroke="#4c5a54" stroke-width="1.4"/></svg>
+        Lingkaran = Sumur Gali
+      </div>
+      <div class="shape-note">
+        <svg class="shape-icon" viewBox="0 0 12 12"><polygon points="6,1 11,10 1,10" fill="none" stroke="#4c5a54" stroke-width="1.4"/></svg>
+        Segitiga = Sumur Bor
+      </div>
+    </div>
+
+    <footer>
+      Sumber data: survei lapangan sanitasi sumur, Kelurahan Sikumana (diolah). Ambang jarak aman mengacu SNI 2398:2017 (≥10 m dari WC/septic tank).
+    </footer>
+  </aside>
+  <div id="map"></div>
+</div>
+
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script>
+const RAW = {
+  "type": "FeatureCollection",
+  "name": "sumur_sikumana_web",
+  "crs": { "type": "name", "properties": { "name": "urn:ogc:def:crs:OGC:1.3:CRS84" } },
+  "features": [
+    {"type": "Feature", "properties": {"ID": "T2-293c1a70", "KELOMPOK": "2.4", "SURVEYOR": "Matius T.S Ndena", "SUMBER_AIR": "Sumur Gali", "TINGGI_AIR": 5.65, "KEDLM_BOR": null, "SEPTIC1": "Dasar Tanah", "SEPTIC2": "Dasar Tanah", "SEPTIC3": "Dasar Tanah", "SEPTIC4": "Dasar Tanah", "JARAK_WC": 6.0, "SUMBER_JRK": "Asli", "KUALITAS": "Tidak Memenuhi Syarat", "N_SEPTIC": 4, "N_TANAH": 4, "N_BETON": 0, "SEPTIC_KAT": "Semua Dasar Tanah", "SKOR_RSK": 4, "KAT_RISIKO": "Tinggi", "FOTO_URL": "https://github.com/eldodcsurvey/KKNTFT/blob/main/T2_Data_Images/T2_Data_Images/T2-293c1a70.Foto.020437.jpg?raw=true", "FOTO_SEP": "", "N_FOTO": 1}, "geometry": {"type": "Point", "coordinates": [123.60761, -10.203446000000199]}},
+    {"type": "Feature", "properties": {"ID": "T2-13e4a93e", "KELOMPOK": "2.4", "SURVEYOR": "Aril", "SUMBER_AIR": "Sumur Gali", "TINGGI_AIR": 6.3, "KEDLM_BOR": null, "SEPTIC1": "Dasar Tanah", "SEPTIC2": "Dasar Tanah", "SEPTIC3": "Dasar Tanah", "SEPTIC4": "Dasar Tanah", "JARAK_WC": 14.0, "SUMBER_JRK": "Asli", "KUALITAS": "Memenuhi Syarat", "N_SEPTIC": 4, "N_TANAH": 4, "N_BETON": 0, "SEPTIC_KAT": "Semua Dasar Tanah", "SKOR_RSK": 2, "KAT_RISIKO": "Sedang", "FOTO_URL": "https://github.com/eldodcsurvey/KKNTFT/blob/main/T2_Data_Images/T2_Data_Images/T2-13e4a93e.Foto.020924.jpg?raw=true", "FOTO_SEP": "", "N_FOTO": 1}, "geometry": {"type": "Point", "coordinates": [123.606375, -10.201957000000201]}},
+    {"type": "Feature", "properties": {"ID": "T2-f60e0d00", "KELOMPOK": "2.4", "SURVEYOR": "Yohanes Tonga", "SUMBER_AIR": "Sumur Gali", "TINGGI_AIR": 10.0, "KEDLM_BOR": null, "SEPTIC1": "Full Beton", "SEPTIC2": "Full Beton", "SEPTIC3": "Full Beton", "SEPTIC4": "Full Beton", "JARAK_WC": 12.0, "SUMBER_JRK": "Asli", "KUALITAS": "Memenuhi Syarat", "N_SEPTIC": 4, "N_TANAH": 0, "N_BETON": 4, "SEPTIC_KAT": "Semua Full Beton", "SKOR_RSK": 1, "KAT_RISIKO": "Rendah", "FOTO_URL": "https://github.com/eldodcsurvey/KKNTFT/blob/main/T2_Data_Images/T2_Data_Images/T2-f60e0d00.Foto.021505.jpg?raw=true", "FOTO_SEP": "", "N_FOTO": 1}, "geometry": {"type": "Point", "coordinates": [123.608006, -10.203165000000192]}},
+    {"type": "Feature", "properties": {"ID": "T2-d824f224", "KELOMPOK": "2.3", "SURVEYOR": "Eunike Malli", "SUMBER_AIR": "Sumur Gali", "TINGGI_AIR": 10.5, "KEDLM_BOR": null, "SEPTIC1": "Full Beton", "SEPTIC2": "Full Beton", "SEPTIC3": "Full Beton", "SEPTIC4": null, "JARAK_WC": 9.0, "SUMBER_JRK": "Asli", "KUALITAS": "Tidak Memenuhi Syarat", "N_SEPTIC": 3, "N_TANAH": 0, "N_BETON": 3, "SEPTIC_KAT": "Semua Full Beton", "SKOR_RSK": 3, "KAT_RISIKO": "Tinggi", "FOTO_URL": "https://github.com/eldodcsurvey/KKNTFT/blob/main/T2_Data_Images/T2_Data_Images/T2-d824f224.Foto.021654.jpg?raw=true", "FOTO_SEP": "", "N_FOTO": 1}, "geometry": {"type": "Point", "coordinates": [123.605929, -10.202557000000189]}},
+    {"type": "Feature", "properties": {"ID": "T2-69df6a03", "KELOMPOK": "2.4", "SURVEYOR": "Andyne Naura Salsabyla", "SUMBER_AIR": "Sumur Gali", "TINGGI_AIR": 7.3, "KEDLM_BOR": null, "SEPTIC1": "Dasar Tanah", "SEPTIC2": "Dasar Tanah", "SEPTIC3": "Dasar Tanah", "SEPTIC4": "Dasar Tanah", "JARAK_WC": 16.0, "SUMBER_JRK": "Asli", "KUALITAS": "Memenuhi Syarat", "N_SEPTIC": 4, "N_TANAH": 4, "N_BETON": 0, "SEPTIC_KAT": "Semua Dasar Tanah", "SKOR_RSK": 2, "KAT_RISIKO": "Sedang", "FOTO_URL": "https://github.com/eldodcsurvey/KKNTFT/blob/main/T2_Data_Images/T2_Data_Images/T2-69df6a03.Foto.021807.jpg?raw=true", "FOTO_SEP": "", "N_FOTO": 1}, "geometry": {"type": "Point", "coordinates": [123.606435, -10.201788000000194]}},
+    {"type": "Feature", "properties": {"ID": "T2-3a853937", "KELOMPOK": "2.2", "SURVEYOR": "Aldi", "SUMBER_AIR": "Sumur Gali", "TINGGI_AIR": 11.0, "KEDLM_BOR": null, "SEPTIC1": "Full Beton", "SEPTIC2": null, "SEPTIC3": null, "SEPTIC4": null, "JARAK_WC": 10.0, "SUMBER_JRK": "Asli", "KUALITAS": "Memenuhi Syarat", "N_SEPTIC": 1, "N_TANAH": 0, "N_BETON": 1, "SEPTIC_KAT": "Semua Full Beton", "SKOR_RSK": 1, "KAT_RISIKO": "Rendah", "FOTO_URL": "https://github.com/eldodcsurvey/KKNTFT/blob/main/T2_Data_Images/T2_Data_Images/T2-3a853937.Foto.022032.jpg?raw=true", "FOTO_SEP": "", "N_FOTO": 1}, "geometry": {"type": "Point", "coordinates": [123.604554, -10.2026710000002]}},
+    {"type": "Feature", "properties": {"ID": "T2-8f722833", "KELOMPOK": "2.4", "SURVEYOR": "Yusup Imanuel Umbu zogara", "SUMBER_AIR": "Sumur Gali", "TINGGI_AIR": 9.7, "KEDLM_BOR": null, "SEPTIC1": "Full Beton", "SEPTIC2": "Full Beton", "SEPTIC3": "Full Beton", "SEPTIC4": "Full Beton", "JARAK_WC": 16.0, "SUMBER_JRK": "Asli", "KUALITAS": "Memenuhi Syarat", "N_SEPTIC": 4, "N_TANAH": 0, "N_BETON": 4, "SEPTIC_KAT": "Semua Full Beton", "SKOR_RSK": 1, "KAT_RISIKO": "Rendah", "FOTO_URL": "https://github.com/eldodcsurvey/KKNTFT/blob/main/T2_Data_Images/T2_Data_Images/T2-8f722833.Foto.022620.jpg?raw=true", "FOTO_SEP": "", "N_FOTO": 1}, "geometry": {"type": "Point", "coordinates": [123.607778, -10.202885000000204]}},
+    {"type": "Feature", "properties": {"ID": "T2-7b9363b1", "KELOMPOK": "2.4", "SURVEYOR": "Risa Bouk", "SUMBER_AIR": "Sumur Gali", "TINGGI_AIR": 10.7, "KEDLM_BOR": null, "SEPTIC1": "Dasar Tanah", "SEPTIC2": "Dasar Tanah", "SEPTIC3": "Dasar Tanah", "SEPTIC4": "Full Beton", "JARAK_WC": 12.0, "SUMBER_JRK": "Asli", "KUALITAS": "Memenuhi Syarat", "N_SEPTIC": 4, "N_TANAH": 3, "N_BETON": 1, "SEPTIC_KAT": "Campuran", "SKOR_RSK": 2, "KAT_RISIKO": "Sedang", "FOTO_URL": "https://github.com/eldodcsurvey/KKNTFT/blob/main/T2_Data_Images/T2_Data_Images/T2-7b9363b1.Foto.022821.jpg?raw=true", "FOTO_SEP": "", "N_FOTO": 1}, "geometry": {"type": "Point", "coordinates": [123.606911, -10.202921000000186]}},
+    {"type": "Feature", "properties": {"ID": "T2-de98a83f", "KELOMPOK": "2.3", "SURVEYOR": "Virgin Rambu Roy Aroyo Hoki Borang", "SUMBER_AIR": "Sumur Gali", "TINGGI_AIR": 9.0, "KEDLM_BOR": null, "SEPTIC1": "Dasar Tanah", "SEPTIC2": null, "SEPTIC3": null, "SEPTIC4": null, "JARAK_WC": 25.0, "SUMBER_JRK": "Asli", "KUALITAS": "Memenuhi Syarat", "N_SEPTIC": 1, "N_TANAH": 1, "N_BETON": 0, "SEPTIC_KAT": "Semua Dasar Tanah", "SKOR_RSK": 2, "KAT_RISIKO": "Sedang", "FOTO_URL": "https://github.com/eldodcsurvey/KKNTFT/blob/main/T2_Data_Images/T2_Data_Images/T2-de98a83f.Foto.023724.jpg?raw=true", "FOTO_SEP": "", "N_FOTO": 1}, "geometry": {"type": "Point", "coordinates": [123.605861, -10.2018370000002]}},
+    {"type": "Feature", "properties": {"ID": "T2-0e05050f", "KELOMPOK": "2.3", "SURVEYOR": "Eunike Malli", "SUMBER_AIR": "Sumur Gali", "TINGGI_AIR": 2.5, "KEDLM_BOR": null, "SEPTIC1": "Full Beton", "SEPTIC2": "Full Beton", "SEPTIC3": null, "SEPTIC4": null, "JARAK_WC": 10.0, "SUMBER_JRK": "Asli", "KUALITAS": "Memenuhi Syarat", "N_SEPTIC": 2, "N_TANAH": 0, "N_BETON": 2, "SEPTIC_KAT": "Semua Full Beton", "SKOR_RSK": 1, "KAT_RISIKO": "Rendah", "FOTO_URL": "https://github.com/eldodcsurvey/KKNTFT/blob/main/T2_Data_Images/T2_Data_Images/T2-0e05050f.Foto.023938.jpg?raw=true", "FOTO_SEP": "", "N_FOTO": 1}, "geometry": {"type": "Point", "coordinates": [123.606951, -10.203467000000195]}},
+    {"type": "Feature", "properties": {"ID": "T2-9c0ce13f", "KELOMPOK": "2.4", "SURVEYOR": "Esra", "SUMBER_AIR": "Sumur Gali", "TINGGI_AIR": 13.2, "KEDLM_BOR": null, "SEPTIC1": null, "SEPTIC2": "Dasar Tanah", "SEPTIC3": "Dasar Tanah", "SEPTIC4": "Dasar Tanah", "JARAK_WC": 14.0, "SUMBER_JRK": "Asli", "KUALITAS": "Memenuhi Syarat", "N_SEPTIC": 3, "N_TANAH": 3, "N_BETON": 0, "SEPTIC_KAT": "Semua Dasar Tanah", "SKOR_RSK": 2, "KAT_RISIKO": "Sedang", "FOTO_URL": "https://github.com/eldodcsurvey/KKNTFT/blob/main/T2_Data_Images/T2_Data_Images/T2-9c0ce13f.Foto.024159.jpg?raw=true", "FOTO_SEP": "", "N_FOTO": 1}, "geometry": {"type": "Point", "coordinates": [123.606361, -10.201538000000198]}},
+    {"type": "Feature", "properties": {"ID": "T2-935b57d7", "KELOMPOK": "2.4", "SURVEYOR": "Matius T.S Ndena", "SUMBER_AIR": "Sumur Gali", "TINGGI_AIR": 15.0, "KEDLM_BOR": null, "SEPTIC1": "Dasar Tanah", "SEPTIC2": "Full Beton", "SEPTIC3": "Full Beton", "SEPTIC4": "Full Beton", "JARAK_WC": 11.0, "SUMBER_JRK": "Asli", "KUALITAS": "Memenuhi Syarat", "N_SEPTIC": 4, "N_TANAH": 1, "N_BETON": 3, "SEPTIC_KAT": "Campuran", "SKOR_RSK": 2, "KAT_RISIKO": "Sedang", "FOTO_URL": "https://github.com/eldodcsurvey/KKNTFT/blob/main/T2_Data_Images/T2_Data_Images/T2-935b57d7.Foto.024439.jpg?raw=true", "FOTO_SEP": "", "N_FOTO": 1}, "geometry": {"type": "Point", "coordinates": [123.607552, -10.202633000000194]}},
+    {"type": "Feature", "properties": {"ID": "T2-2ff0f0c4", "KELOMPOK": "2.2", "SURVEYOR": "Boma", "SUMBER_AIR": "Sumur Bor", "TINGGI_AIR": null, "KEDLM_BOR": 45.0, "SEPTIC1": "Full Beton", "SEPTIC2": null, "SEPTIC3": null, "SEPTIC4": null, "JARAK_WC": 6.6, "SUMBER_JRK": "Estimasi", "KUALITAS": "Tidak Memenuhi Syarat", "N_SEPTIC": 1, "N_TANAH": 0, "N_BETON": 1, "SEPTIC_KAT": "Semua Full Beton", "SKOR_RSK": 2, "KAT_RISIKO": "Sedang", "FOTO_URL": "https://github.com/eldodcsurvey/KKNTFT/blob/main/T2_Data_Images/T2_Data_Images/T2-2ff0f0c4.Foto.024534.jpg?raw=true", "FOTO_SEP": "", "N_FOTO": 1}, "geometry": {"type": "Point", "coordinates": [123.603881, -10.203424000000194]}},
+    {"type": "Feature", "properties": {"ID": "T2-a9568863", "KELOMPOK": "2.5", "SURVEYOR": "Vays", "SUMBER_AIR": "Sumur Bor", "TINGGI_AIR": null, "KEDLM_BOR": 10.0, "SEPTIC1": "Dasar Tanah", "SEPTIC2": "Dasar Tanah", "SEPTIC3": "Dasar Tanah", "SEPTIC4": "Full Beton", "JARAK_WC": 6.6, "SUMBER_JRK": "Estimasi", "KUALITAS": "Tidak Memenuhi Syarat", "N_SEPTIC": 4, "N_TANAH": 3, "N_BETON": 1, "SEPTIC_KAT": "Campuran", "SKOR_RSK": 3, "KAT_RISIKO": "Tinggi", "FOTO_URL": "https://github.com/eldodcsurvey/KKNTFT/blob/main/T2_Data_Images/T2_Data_Images/T2-a9568863.Foto.024700.jpg?raw=true", "FOTO_SEP": "", "N_FOTO": 1}, "geometry": {"type": "Point", "coordinates": [123.606842, -10.199329000000194]}},
+    {"type": "Feature", "properties": {"ID": "T2-6227edd1", "KELOMPOK": "2.2", "SURVEYOR": "Fred", "SUMBER_AIR": "Sumur Gali", "TINGGI_AIR": 21.0, "KEDLM_BOR": null, "SEPTIC1": "Full Beton", "SEPTIC2": null, "SEPTIC3": null, "SEPTIC4": null, "JARAK_WC": 15.0, "SUMBER_JRK": "Asli", "KUALITAS": "Memenuhi Syarat", "N_SEPTIC": 1, "N_TANAH": 0, "N_BETON": 1, "SEPTIC_KAT": "Semua Full Beton", "SKOR_RSK": 1, "KAT_RISIKO": "Rendah", "FOTO_URL": "https://github.com/eldodcsurvey/KKNTFT/blob/main/T2_Data_Images/T2_Data_Images/T2-6227edd1.Foto.024955.jpg?raw=true", "FOTO_SEP": "", "N_FOTO": 1}, "geometry": {"type": "Point", "coordinates": [123.603996, -10.20339100000021]}},
+    {"type": "Feature", "properties": {"ID": "T2-d08e6121", "KELOMPOK": "2.3", "SURVEYOR": "Virgin Rambu Roy Aroyo Hoki Borang", "SUMBER_AIR": "Sumur Gali", "TINGGI_AIR": 4.0, "KEDLM_BOR": null, "SEPTIC1": "Dasar Tanah", "SEPTIC2": null, "SEPTIC3": null, "SEPTIC4": null, "JARAK_WC": 15.0, "SUMBER_JRK": "Asli", "KUALITAS": "Memenuhi Syarat", "N_SEPTIC": 1, "N_TANAH": 1, "N_BETON": 0, "SEPTIC_KAT": "Semua Dasar Tanah", "SKOR_RSK": 2, "KAT_RISIKO": "Sedang", "FOTO_URL": "https://github.com/eldodcsurvey/KKNTFT/blob/main/T2_Data_Images/T2_Data_Images/T2-d08e6121.Foto.025325.jpg?raw=true", "FOTO_SEP": "", "N_FOTO": 1}, "geometry": {"type": "Point", "coordinates": [123.60581, -10.204122000000192]}},
+    {"type": "Feature", "properties": {"ID": "T2-982d29ee", "KELOMPOK": "2.3", "SURVEYOR": "April clen yordan ardy", "SUMBER_AIR": "Sumur Gali", "TINGGI_AIR": 3.0, "KEDLM_BOR": null, "SEPTIC1": "Dasar Tanah", "SEPTIC2": null, "SEPTIC3": null, "SEPTIC4": null, "JARAK_WC": 7.0, "SUMBER_JRK": "Asli", "KUALITAS": "Tidak Memenuhi Syarat", "N_SEPTIC": 1, "N_TANAH": 1, "N_BETON": 0, "SEPTIC_KAT": "Semua Dasar Tanah", "SKOR_RSK": 4, "KAT_RISIKO": "Tinggi", "FOTO_URL": "https://github.com/eldodcsurvey/KKNTFT/blob/main/T2_Data_Images/T2_Data_Images/T2-982d29ee.Foto.025704.jpg?raw=true", "FOTO_SEP": "", "N_FOTO": 1}, "geometry": {"type": "Point", "coordinates": [123.604905, -10.204430000000198]}},
+    {"type": "Feature", "properties": {"ID": "T2-0923cd14", "KELOMPOK": "2.2", "SURVEYOR": "Aldi", "SUMBER_AIR": "Sumur Bor", "TINGGI_AIR": null, "KEDLM_BOR": 45.0, "SEPTIC1": "Full Beton", "SEPTIC2": "Full Beton", "SEPTIC3": null, "SEPTIC4": null, "JARAK_WC": 5.6, "SUMBER_JRK": "Estimasi", "KUALITAS": "Tidak Memenuhi Syarat", "N_SEPTIC": 2, "N_TANAH": 0, "N_BETON": 2, "SEPTIC_KAT": "Semua Full Beton", "SKOR_RSK": 2, "KAT_RISIKO": "Sedang", "FOTO_URL": "https://github.com/eldodcsurvey/KKNTFT/blob/main/T2_Data_Images/T2_Data_Images/T2-0923cd14.Foto.025841.jpg?raw=true", "FOTO_SEP": "", "N_FOTO": 1}, "geometry": {"type": "Point", "coordinates": [123.603766, -10.203241000000197]}},
+    {"type": "Feature", "properties": {"ID": "T2-19b56a8c", "KELOMPOK": "2.3", "SURVEYOR": "Eunike Malli", "SUMBER_AIR": "Sumur Gali", "TINGGI_AIR": 3.3, "KEDLM_BOR": null, "SEPTIC1": null, "SEPTIC2": "Full Beton", "SEPTIC3": null, "SEPTIC4": null, "JARAK_WC": 9.0, "SUMBER_JRK": "Asli", "KUALITAS": "Tidak Memenuhi Syarat", "N_SEPTIC": 1, "N_TANAH": 0, "N_BETON": 1, "SEPTIC_KAT": "Semua Full Beton", "SKOR_RSK": 3, "KAT_RISIKO": "Tinggi", "FOTO_URL": "https://github.com/eldodcsurvey/KKNTFT/blob/main/T2_Data_Images/T2_Data_Images/T2-19b56a8c.Foto.025956.jpg?raw=true", "FOTO_SEP": "", "N_FOTO": 1}, "geometry": {"type": "Point", "coordinates": [123.607666, -10.204799000000195]}},
+    {"type": "Feature", "properties": {"ID": "T2-763df2f4", "KELOMPOK": "2.4", "SURVEYOR": "Matius ndena", "SUMBER_AIR": "Sumur Gali", "TINGGI_AIR": 22.0, "KEDLM_BOR": null, "SEPTIC1": "Dasar Tanah", "SEPTIC2": "Dasar Tanah", "SEPTIC3": "Dasar Tanah", "SEPTIC4": "Dasar Tanah", "JARAK_WC": 14.0, "SUMBER_JRK": "Asli", "KUALITAS": "Memenuhi Syarat", "N_SEPTIC": 4, "N_TANAH": 4, "N_BETON": 0, "SEPTIC_KAT": "Semua Dasar Tanah", "SKOR_RSK": 2, "KAT_RISIKO": "Sedang", "FOTO_URL": "https://github.com/eldodcsurvey/KKNTFT/blob/main/T2_Data_Images/T2_Data_Images/T2-763df2f4.Foto.025957.jpg?raw=true", "FOTO_SEP": "", "N_FOTO": 1}, "geometry": {"type": "Point", "coordinates": [123.608067, -10.20180400000019]}},
+    {"type": "Feature", "properties": {"ID": "T2-b59c1313", "KELOMPOK": "2.4", "SURVEYOR": "Jefri Bernadus Selly", "SUMBER_AIR": "Sumur Gali", "TINGGI_AIR": 23.0, "KEDLM_BOR": null, "SEPTIC1": "Full Beton", "SEPTIC2": "Full Beton", "SEPTIC3": "Full Beton", "SEPTIC4": "Full Beton", "JARAK_WC": 20.0, "SUMBER_JRK": "Asli", "KUALITAS": "Memenuhi Syarat", "N_SEPTIC": 4, "N_TANAH": 0, "N_BETON": 4, "SEPTIC_KAT": "Semua Full Beton", "SKOR_RSK": 1, "KAT_RISIKO": "Rendah", "FOTO_URL": "https://github.com/eldodcsurvey/KKNTFT/blob/main/T2_Data_Images/T2_Data_Images/T2-b59c1313.Foto.030446.jpg?raw=true", "FOTO_SEP": "", "N_FOTO": 1}, "geometry": {"type": "Point", "coordinates": [123.608248, -10.201739000000192]}},
+    {"type": "Feature", "properties": {"ID": "T2-a02cdc55", "KELOMPOK": "2.3", "SURVEYOR": "Virgin rambu roy", "SUMBER_AIR": "Sumur Gali", "TINGGI_AIR": 13.5, "KEDLM_BOR": null, "SEPTIC1": "Dasar Tanah", "SEPTIC2": "Dasar Tanah", "SEPTIC3": "Dasar Tanah", "SEPTIC4": "Dasar Tanah", "JARAK_WC": 40.0, "SUMBER_JRK": "Asli", "KUALITAS": "Memenuhi Syarat", "N_SEPTIC": 4, "N_TANAH": 4, "N_BETON": 0, "SEPTIC_KAT": "Semua Dasar Tanah", "SKOR_RSK": 2, "KAT_RISIKO": "Sedang", "FOTO_URL": "https://github.com/eldodcsurvey/KKNTFT/blob/main/T2_Data_Images/T2_Data_Images/T2-a02cdc55.Foto.030841.jpg?raw=true", "FOTO_SEP": "", "N_FOTO": 1}, "geometry": {"type": "Point", "coordinates": [123.605276, -10.2044140000002]}},
+    {"type": "Feature", "properties": {"ID": "T2-9be3968d", "KELOMPOK": "2.2", "SURVEYOR": "Farel", "SUMBER_AIR": "Sumur Gali", "TINGGI_AIR": 11.0, "KEDLM_BOR": null, "SEPTIC1": "Full Beton", "SEPTIC2": null, "SEPTIC3": null, "SEPTIC4": null, "JARAK_WC": 22.0, "SUMBER_JRK": "Asli", "KUALITAS": "Memenuhi Syarat", "N_SEPTIC": 1, "N_TANAH": 0, "N_BETON": 1, "SEPTIC_KAT": "Semua Full Beton", "SKOR_RSK": 1, "KAT_RISIKO": "Rendah", "FOTO_URL": "https://github.com/eldodcsurvey/KKNTFT/blob/main/T2_Data_Images/T2_Data_Images/T2-9be3968d.Foto.030941.jpg?raw=true", "FOTO_SEP": "", "N_FOTO": 1}, "geometry": {"type": "Point", "coordinates": [123.604023, -10.202537000000198]}},
+    {"type": "Feature", "properties": {"ID": "T2-79c850bb", "KELOMPOK": "2.3", "SURVEYOR": "Ardy april Yordan clen", "SUMBER_AIR": "Sumur Gali", "TINGGI_AIR": 2.0, "KEDLM_BOR": null, "SEPTIC1": "Dasar Tanah", "SEPTIC2": null, "SEPTIC3": null, "SEPTIC4": null, "JARAK_WC": 27.0, "SUMBER_JRK": "Asli", "KUALITAS": "Memenuhi Syarat", "N_SEPTIC": 1, "N_TANAH": 1, "N_BETON": 0, "SEPTIC_KAT": "Semua Dasar Tanah", "SKOR_RSK": 2, "KAT_RISIKO": "Sedang", "FOTO_URL": "https://github.com/eldodcsurvey/KKNTFT/blob/main/T2_Data_Images/T2_Data_Images/T2-79c850bb.Foto.031327.jpg?raw=true", "FOTO_SEP": "", "N_FOTO": 1}, "geometry": {"type": "Point", "coordinates": [123.604822, -10.204244000000191]}},
+    {"type": "Feature", "properties": {"ID": "T2-a764e0a0", "KELOMPOK": "2.4", "SURVEYOR": "Aril", "SUMBER_AIR": "Sumur Gali", "TINGGI_AIR": 22.2, "KEDLM_BOR": null, "SEPTIC1": "Dasar Tanah", "SEPTIC2": "Dasar Tanah", "SEPTIC3": "Dasar Tanah", "SEPTIC4": "Dasar Tanah", "JARAK_WC": 13.0, "SUMBER_JRK": "Asli", "KUALITAS": "Memenuhi Syarat", "N_SEPTIC": 4, "N_TANAH": 4, "N_BETON": 0, "SEPTIC_KAT": "Semua Dasar Tanah", "SKOR_RSK": 2, "KAT_RISIKO": "Sedang", "FOTO_URL": "https://github.com/eldodcsurvey/KKNTFT/blob/main/T2_Data_Images/T2_Data_Images/T2-a764e0a0.Foto.031437.jpg?raw=true", "FOTO_SEP": "", "N_FOTO": 1}, "geometry": {"type": "Point", "coordinates": [123.608053, -10.20156800000019]}},
+    {"type": "Feature", "properties": {"ID": "T2-e58a5e42", "KELOMPOK": "2.3", "SURVEYOR": "Frederikus M. L. W Betu", "SUMBER_AIR": "Sumur Gali", "TINGGI_AIR": 9.6, "KEDLM_BOR": null, "SEPTIC1": "Dasar Tanah", "SEPTIC2": null, "SEPTIC3": null, "SEPTIC4": null, "JARAK_WC": 13.0, "SUMBER_JRK": "Asli", "KUALITAS": "Memenuhi Syarat", "N_SEPTIC": 1, "N_TANAH": 1, "N_BETON": 0, "SEPTIC_KAT": "Semua Dasar Tanah", "SKOR_RSK": 2, "KAT_RISIKO": "Sedang", "FOTO_URL": "https://github.com/eldodcsurvey/KKNTFT/blob/main/T2_Data_Images/T2_Data_Images/T2-e58a5e42.Foto.031849.jpg?raw=true", "FOTO_SEP": "", "N_FOTO": 1}, "geometry": {"type": "Point", "coordinates": [123.60496, -10.204197000000189]}},
+    {"type": "Feature", "properties": {"ID": "T2-e970b50a", "KELOMPOK": "2.3", "SURVEYOR": "Eunike Malli", "SUMBER_AIR": "Sumur Gali", "TINGGI_AIR": 6.5, "KEDLM_BOR": null, "SEPTIC1": "Full Beton", "SEPTIC2": null, "SEPTIC3": null, "SEPTIC4": null, "JARAK_WC": 6.0, "SUMBER_JRK": "Asli", "KUALITAS": "Tidak Memenuhi Syarat", "N_SEPTIC": 1, "N_TANAH": 0, "N_BETON": 1, "SEPTIC_KAT": "Semua Full Beton", "SKOR_RSK": 3, "KAT_RISIKO": "Tinggi", "FOTO_URL": "https://github.com/eldodcsurvey/KKNTFT/blob/main/T2_Data_Images/T2_Data_Images/T2-e970b50a.Foto.031854.jpg?raw=true", "FOTO_SEP": "", "N_FOTO": 1}, "geometry": {"type": "Point", "coordinates": [123.606454, -10.204147000000194]}},
+    {"type": "Feature", "properties": {"ID": "T2-b7cc8e52", "KELOMPOK": "2.4", "SURVEYOR": "Aloysius Gomo", "SUMBER_AIR": "Sumur Gali", "TINGGI_AIR": 15.3, "KEDLM_BOR": null, "SEPTIC1": "Dasar Tanah", "SEPTIC2": "Dasar Tanah", "SEPTIC3": "Dasar Tanah", "SEPTIC4": "Dasar Tanah", "JARAK_WC": 11.0, "SUMBER_JRK": "Asli", "KUALITAS": "Memenuhi Syarat", "N_SEPTIC": 4, "N_TANAH": 4, "N_BETON": 0, "SEPTIC_KAT": "Semua Dasar Tanah", "SKOR_RSK": 2, "KAT_RISIKO": "Sedang", "FOTO_URL": "https://github.com/eldodcsurvey/KKNTFT/blob/main/T2_Data_Images/T2_Data_Images/T2-b7cc8e52.Foto.032735.jpg?raw=true", "FOTO_SEP": "", "N_FOTO": 1}, "geometry": {"type": "Point", "coordinates": [123.607897, -10.202211000000203]}},
+    {"type": "Feature", "properties": {"ID": "T2-7e192e18", "KELOMPOK": "2.3", "SURVEYOR": "April yorda clen ardy", "SUMBER_AIR": "Sumur Gali", "TINGGI_AIR": 16.4, "KEDLM_BOR": null, "SEPTIC1": "Dasar Tanah", "SEPTIC2": null, "SEPTIC3": null, "SEPTIC4": null, "JARAK_WC": 12.5, "SUMBER_JRK": "Estimasi", "KUALITAS": "Memenuhi Syarat", "N_SEPTIC": 1, "N_TANAH": 1, "N_BETON": 0, "SEPTIC_KAT": "Semua Dasar Tanah", "SKOR_RSK": 2, "KAT_RISIKO": "Sedang", "FOTO_URL": "https://github.com/eldodcsurvey/KKNTFT/blob/main/T2_Data_Images/T2_Data_Images/T2-7e192e18.Foto.032755.jpg?raw=true", "FOTO_SEP": "", "N_FOTO": 1}, "geometry": {"type": "Point", "coordinates": [123.605324, -10.205029000000192]}},
+    {"type": "Feature", "properties": {"ID": "T2-16aa52bb", "KELOMPOK": "2.3", "SURVEYOR": "Eunike Malli", "SUMBER_AIR": "Sumur Gali", "TINGGI_AIR": 1.4, "KEDLM_BOR": null, "SEPTIC1": "Dasar Tanah", "SEPTIC2": null, "SEPTIC3": null, "SEPTIC4": null, "JARAK_WC": 22.0, "SUMBER_JRK": "Asli", "KUALITAS": "Memenuhi Syarat", "N_SEPTIC": 1, "N_TANAH": 1, "N_BETON": 0, "SEPTIC_KAT": "Semua Dasar Tanah", "SKOR_RSK": 2, "KAT_RISIKO": "Sedang", "FOTO_URL": "https://github.com/eldodcsurvey/KKNTFT/blob/main/T2_Data_Images/T2_Data_Images/T2-16aa52bb.Foto.032840.jpg?raw=true", "FOTO_SEP": "", "N_FOTO": 1}, "geometry": {"type": "Point", "coordinates": [123.606843, -10.204307000000192]}},
+    {"type": "Feature", "properties": {"ID": "T2-0d6366f1", "KELOMPOK": "2.3", "SURVEYOR": "Frederikus M. L. W Betu", "SUMBER_AIR": "Sumur Gali", "TINGGI_AIR": 7.1, "KEDLM_BOR": null, "SEPTIC1": "Dasar Tanah", "SEPTIC2": null, "SEPTIC3": null, "SEPTIC4": null, "JARAK_WC": 20.0, "SUMBER_JRK": "Asli", "KUALITAS": "Memenuhi Syarat", "N_SEPTIC": 1, "N_TANAH": 1, "N_BETON": 0, "SEPTIC_KAT": "Semua Dasar Tanah", "SKOR_RSK": 2, "KAT_RISIKO": "Sedang", "FOTO_URL": "https://github.com/eldodcsurvey/KKNTFT/blob/main/T2_Data_Images/T2_Data_Images/T2-0d6366f1.Foto.032956.jpg?raw=true", "FOTO_SEP": "", "N_FOTO": 1}, "geometry": {"type": "Point", "coordinates": [123.605894, -10.2045530000002]}},
+    {"type": "Feature", "properties": {"ID": "T2-f37cfde4", "KELOMPOK": "2.3", "SURVEYOR": "Eunike Malli", "SUMBER_AIR": "Sumur Gali", "TINGGI_AIR": 2.0, "KEDLM_BOR": null, "SEPTIC1": "Dasar Tanah", "SEPTIC2": null, "SEPTIC3": null, "SEPTIC4": null, "JARAK_WC": 15.0, "SUMBER_JRK": "Asli", "KUALITAS": "Memenuhi Syarat", "N_SEPTIC": 1, "N_TANAH": 1, "N_BETON": 0, "SEPTIC_KAT": "Semua Dasar Tanah", "SKOR_RSK": 2, "KAT_RISIKO": "Sedang", "FOTO_URL": "https://github.com/eldodcsurvey/KKNTFT/blob/main/T2_Data_Images/T2_Data_Images/T2-f37cfde4.Foto.033412.jpg?raw=true", "FOTO_SEP": "", "N_FOTO": 1}, "geometry": {"type": "Point", "coordinates": [123.606333, -10.204681000000207]}},
+    {"type": "Feature", "properties": {"ID": "T2-380ecef1", "KELOMPOK": "2.3", "SURVEYOR": "Frederikus M. L. W Betu", "SUMBER_AIR": "Sumur Gali", "TINGGI_AIR": 6.0, "KEDLM_BOR": null, "SEPTIC1": "Dasar Tanah", "SEPTIC2": null, "SEPTIC3": null, "SEPTIC4": null, "JARAK_WC": 25.0, "SUMBER_JRK": "Asli", "KUALITAS": "Memenuhi Syarat", "N_SEPTIC": 1, "N_TANAH": 1, "N_BETON": 0, "SEPTIC_KAT": "Semua Dasar Tanah", "SKOR_RSK": 2, "KAT_RISIKO": "Sedang", "FOTO_URL": "https://github.com/eldodcsurvey/KKNTFT/blob/main/T2_Data_Images/T2_Data_Images/T2-380ecef1.Foto.033501.jpg?raw=true", "FOTO_SEP": "", "N_FOTO": 1}, "geometry": {"type": "Point", "coordinates": [123.605933, -10.204648000000207]}},
+    {"type": "Feature", "properties": {"ID": "T2-6793815c", "KELOMPOK": "2.3", "SURVEYOR": "Ardy april clen yordan", "SUMBER_AIR": "Sumur Gali", "TINGGI_AIR": 18.4, "KEDLM_BOR": null, "SEPTIC1": "Dasar Tanah", "SEPTIC2": null, "SEPTIC3": null, "SEPTIC4": null, "JARAK_WC": 28.0, "SUMBER_JRK": "Asli", "KUALITAS": "Memenuhi Syarat", "N_SEPTIC": 1, "N_TANAH": 1, "N_BETON": 0, "SEPTIC_KAT": "Semua Dasar Tanah", "SKOR_RSK": 2, "KAT_RISIKO": "Sedang", "FOTO_URL": "https://github.com/eldodcsurvey/KKNTFT/blob/main/T2_Data_Images/T2_Data_Images/T2-6793815c.Foto.033649.jpg?raw=true", "FOTO_SEP": "", "N_FOTO": 1}, "geometry": {"type": "Point", "coordinates": [123.605108, -10.205319000000193]}},
+    {"type": "Feature", "properties": {"ID": "T2-4918a6fe", "KELOMPOK": "2.3", "SURVEYOR": "Ardy april clen yordan", "SUMBER_AIR": "Sumur Gali", "TINGGI_AIR": 14.49, "KEDLM_BOR": null, "SEPTIC1": "Dasar Tanah", "SEPTIC2": null, "SEPTIC3": null, "SEPTIC4": null, "JARAK_WC": 2.0, "SUMBER_JRK": "Asli", "KUALITAS": "Tidak Memenuhi Syarat", "N_SEPTIC": 1, "N_TANAH": 1, "N_BETON": 0, "SEPTIC_KAT": "Semua Dasar Tanah", "SKOR_RSK": 4, "KAT_RISIKO": "Tinggi", "FOTO_URL": "https://github.com/eldodcsurvey/KKNTFT/blob/main/T2_Data_Images/T2_Data_Images/T2-4918a6fe.Foto.034701.jpg?raw=true", "FOTO_SEP": "", "N_FOTO": 1}, "geometry": {"type": "Point", "coordinates": [123.604639, -10.205565000000199]}},
+    {"type": "Feature", "properties": {"ID": "T2-fbf2973b", "KELOMPOK": "2.3", "SURVEYOR": "Ardy yordan aprl clen", "SUMBER_AIR": "Sumur Gali", "TINGGI_AIR": 25.7, "KEDLM_BOR": null, "SEPTIC1": "Dasar Tanah", "SEPTIC2": null, "SEPTIC3": null, "SEPTIC4": null, "JARAK_WC": 9.0, "SUMBER_JRK": "Asli", "KUALITAS": "Tidak Memenuhi Syarat", "N_SEPTIC": 1, "N_TANAH": 1, "N_BETON": 0, "SEPTIC_KAT": "Semua Dasar Tanah", "SKOR_RSK": 4, "KAT_RISIKO": "Tinggi", "FOTO_URL": "https://github.com/eldodcsurvey/KKNTFT/blob/main/T2_Data_Images/T2_Data_Images/T2-fbf2973b.Foto.035010.jpg?raw=true", "FOTO_SEP": "", "N_FOTO": 1}, "geometry": {"type": "Point", "coordinates": [123.604500, -10.205700]}}
+  ]
+};
+
+// Konfigurasi Skema Warna
+const COLOR_SCHEMES = {
+  KUALITAS: {
+    "Memenuhi Syarat": "#2e7d32",
+    "Tidak Memenuhi Syarat": "#a32d2d"
+  },
+  KAT_RISIKO: {
+    "Rendah": "#2e7d32",
+    "Sedang": "#c98500",
+    "Tinggi": "#a32d2d"
+  },
+  SUMBER_AIR: {
+    "Sumur Gali": "#0f6e56",
+    "Sumur Bor": "#2b5c8f"
+  }
+};
+
+let currentMode = "KUALITAS";
+let map, geojsonLayer;
+
+// Inisialisasi Peta Leaflet
+function initMap() {
+  map = L.map('map').setView([-10.203, 123.606], 16);
+
+  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+    maxZoom: 19,
+    attribution: '© OpenStreetMap'
+  }).addTo(map);
+
+  renderStats();
+  renderMapLayers();
+  setupEventListeners();
+}
+
+// Menghitung & Menampilkan Statistik Ringkas
+function renderStats() {
+  const total = RAW.features.length;
+  const ms = RAW.features.filter(f => f.properties.KUALITAS === "Memenuhi Syarat").length;
+  const tms = total - ms;
+
+  document.getElementById('stats-box').innerHTML = `
+    <div class="stat green">
+      <div class="n">${ms}</div>
+      <div class="l">Memenuhi Syarat</div>
+    </div>
+    <div class="stat red">
+      <div class="n">${tms}</div>
+      <div class="l">Tidak Memenuhi Syarat</div>
+    </div>
+  `;
+}
+
+// Menghasilkan Marker Bentuk Khusus (Lingkaran / Segitiga)
+function createCustomMarker(latlng, color, type) {
+  let svgShape;
+  if (type === "Sumur Bor") {
+    // Bentuk Segitiga
+    svgShape = `<svg viewBox="0 0 20 20" width="18" height="18">
+      <polygon points="10,2 18,17 2,17" fill="${color}" stroke="#ffffff" stroke-width="2"/>
+    </svg>`;
+  } else {
+    // Bentuk Lingkaran (Sumur Gali)
+    svgShape = `<svg viewBox="0 0 20 20" width="16" height="16">
+      <circle cx="10" cy="10" r="7" fill="${color}" stroke="#ffffff" stroke-width="2"/>
+    </svg>`;
+  }
+
+  const icon = L.divIcon({
+    html: svgShape,
+    className: '',
+    iconSize: [18, 18],
+    iconAnchor: [9, 9]
+  });
+
+  return L.marker(latlng, { icon: icon });
+}
+
+// Membuat Konten Popup saat Marker Diklik
+function createPopupContent(props) {
+  const badgeColor = COLOR_SCHEMES.KUALITAS[props.KUALITAS] || '#8a948f';
+  
+  let fotoHtml = '';
+  if (props.FOTO_URL) {
+    fotoHtml = `
+      <div class="pop-photos">
+        <a href="${props.FOTO_URL}" target="_blank" class="pop-photo-link">
+          <img src="${props.FOTO_URL}" alt="Foto Sumur" onerror="this.src='https://via.placeholder.com/150?text=Foto+Tidak+Tersedia'">
+          <div class="pop-photo-label">Foto Sumur</div>
+        </a>
+      </div>`;
+  }
+
+  return `
+    <div class="pop-title">${props.ID}</div>
+    <span class="pop-badge" style="background:${badgeColor}22; color:${badgeColor}; border:1px solid ${badgeColor}55;">
+      ${props.KUALITAS}
+    </span>
+    <div class="pop-row"><span class="pop-k">Jenis Sumur</span><span class="pop-v">${props.SUMBER_AIR}</span></div>
+    <div class="pop-row"><span class="pop-k">Jarak WC</span><span class="pop-v">${props.JARAK_WC} m</span></div>
+    <div class="pop-row"><span class="pop-k">Kedalaman/Tinggi Air</span><span class="pop-v">${props.TINGGI_AIR ? props.TINGGI_AIR + ' m' : (props.KEDLM_BOR ? props.KEDLM_BOR + ' m' : '-')}</span></div>
+    <div class="pop-row"><span class="pop-k">Kategori Risiko</span><span class="pop-v">${props.KAT_RISIKO} (Skor: ${props.SKOR_RSK})</span></div>
+    <div class="pop-row"><span class="pop-k">Surveyor</span><span class="pop-v">${props.SURVEYOR}</span></div>
+    ${fotoHtml}
+  `;
+}
+
+// Merender Ulang Marker di Peta
+function renderMapLayers() {
+  if (geojsonLayer) {
+    map.removeLayer(geojsonLayer);
+  }
+
+  const selectedTypes = Array.from(document.querySelectorAll('.type-filter:checked')).map(cb => cb.value);
+
+  geojsonLayer = L.geoJSON(RAW, {
+    filter: function(feature) {
+      return selectedTypes.includes(feature.properties.SUMBER_AIR);
+    },
+    pointToLayer: function(feature, latlng) {
+      const val = feature.properties[currentMode];
+      const color = COLOR_SCHEMES[currentMode][val] || '#8a948f';
+      const type = feature.properties.SUMBER_AIR;
+      
+      const marker = createCustomMarker(latlng, color, type);
+      marker.bindPopup(createPopupContent(feature.properties));
+      return marker;
+    }
+  }).addTo(map);
+
+  renderLegend();
+}
+
+// Merender Komponen Legenda Interaktif
+function renderLegend() {
+  const legendBody = document.getElementById('legend-body');
+  const scheme = COLOR_SCHEMES[currentMode];
+  const selectedTypes = Array.from(document.querySelectorAll('.type-filter:checked')).map(cb => cb.value);
+
+  let html = '';
+  for (const [key, color] of Object.entries(scheme)) {
+    // Hitung jumlah data yang sesuai filter
+    const count = RAW.features.filter(f => {
+      return f.properties[currentMode] === key && selectedTypes.includes(f.properties.SUMBER_AIR);
+    }).length;
+
+    html += `
+      <div class="legend-item">
+        <span class="swatch" style="background:${color};"></span>
+        <span>${key}</span>
+        <span class="legend-count">${count}</span>
+      </div>
+    `;
+  }
+  legendBody.innerHTML = html;
+}
+
+// Menghubungkan Event Handlers (Mode & Filter Checkbox)
+function setupEventListeners() {
+  // Event Tab Mode Tampilan
+  document.getElementById('mode-tabs').addEventListener('click', (e) => {
+    if (e.target.tagName === 'BUTTON') {
+      document.querySelectorAll('#mode-tabs button').forEach(btn => btn.classList.remove('active'));
+      e.target.classList.add('active');
+      currentMode = e.target.getAttribute('data-mode');
+      renderMapLayers();
+    }
+  });
+
+  // Event Filter Checkbox
+  document.querySelectorAll('.type-filter').forEach(cb => {
+    cb.addEventListener('change', () => {
+      renderMapLayers();
+    });
+  });
+}
+
+// Jalankan Peta saat DOM Siap
+document.addEventListener('DOMContentLoaded', initMap);
+</script>
+</body>
+</html>
